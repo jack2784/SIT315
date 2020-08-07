@@ -1,0 +1,76 @@
+const unsigned int t_load = 0;
+const unsigned int t_compare = 500000000;
+
+int ledstate = LOW; // set variable for current LED state to low
+
+void setup()
+{ 
+  DDRB |=  (1 << PB5); // internal LED on pin 13
+  DDRB |=  (1 << PD4); // external LED on pin 4 out
+  
+  DDRD &= ~(1 << PD2); // PIR sensor on pin 2 input
+  DDRD &= ~(1 << PD3); // Button on pin 3 input
+  DDRD &= ~(1 << PD7); // PIR sensor on pin 7 input
+    
+  timer_setup();
+  
+  SREG |= (1 << 7); // Enable interrupts
+
+  PCICR |= (1 << PCIE2); // Enable on pins 0-7
+
+  PCMSK2 |= (1 << PCINT18); // Enable on pin 2
+  PCMSK2 |= (1 << PCINT19); // Enable on pin 3
+  PCMSK2 |= (1 << PCINT23); // Enable on pin 7
+}
+
+void timer_setup() {
+
+  TCCR1A = 0; //set TCCR1A register to 0
+  
+  TCCR1B |= (1 << CS12); 
+  TCCR1B &= ~(1 << CS11); 
+  TCCR1B &= ~(1 << CS10); 
+  
+  TCNT1 = t_load; // set counter to 0
+  OCR1A = t_compare; // set comparison time
+  
+  TIMSK1 |= (1 << OCIE1A); // Enable compare interrupt
+  
+  Serial.begin(9600);
+}
+
+void loop() 
+{  
+  delay(500);
+}
+
+// triggers when D0-D7 are triggered
+ISR(PCINT2_vect)
+{
+  //Interrupt PIR sensor one when motion detected
+  if((PIND & (1 << PD2))) {
+    Serial.println("Motion Detected on PIR 1"); 
+  }
+  //Interrupt PIR sensor two when motion detected
+  if((PIND & (1 << PD7))) {
+    Serial.println("Motion Detected on PIR 2"); 
+  }
+  
+  //Interrupt on button click to toggle ext LED
+  if((PIND & (1 << PD3))) {
+    if (ledstate == HIGH){
+     digitalWrite(PD4, LOW);
+     ledstate = LOW;
+    }
+    else{
+     digitalWrite(PD4, HIGH);
+     ledstate = HIGH;
+    }
+  }
+}
+
+ISR(TIMER1_COMPA_vect)
+{
+  PORTB^= (1 << PB5); // toggles the internal LED
+  TCNT1 = t_load; // reset timer
+}
